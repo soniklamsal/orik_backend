@@ -1,0 +1,19 @@
+# --- secrets: never commit ---
+# Note: .gitignore has no inline comments; a trailing "# ..." breaks the pattern.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- python ---
+.venv/
+__pycache__/
+*.py[cod]
+
+# --- runtime data ---
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+# uploaded images belong in object storage, not git
+media/
