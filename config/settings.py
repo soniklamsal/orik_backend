@@ -6,6 +6,7 @@ Everything environment-specific is read from .env (see .env.example).
 import os
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +35,11 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", DEV_SECRET_KEY)
 DEBUG = env_bool("DJANGO_DEBUG", True)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
+# Render injects the service's public hostname at runtime.
+RENDER_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_HOSTNAME and RENDER_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_HOSTNAME)
+
 if not DEBUG and SECRET_KEY == DEV_SECRET_KEY:
     raise RuntimeError("Set DJANGO_SECRET_KEY before running with DJANGO_DEBUG=False.")
 
@@ -53,6 +59,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves static files in production; Django itself will not with DEBUG=False.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # CORS must sit above CommonMiddleware so preflights get their headers.
     "corsheaders.middleware.CorsMiddleware",
@@ -82,8 +90,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# SQLite by default; set POSTGRES_DB to switch, no code change needed.
-if env("POSTGRES_DB"):
+# Render (and most hosts) provide a single DATABASE_URL. The POSTGRES_* vars
+# stay supported for anyone wiring Postgres by hand; SQLite is the dev default.
+if env("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.parse(
+            env("DATABASE_URL"),
+            conn_max_age=600,
+            # Managed Postgres requires TLS; local docker instances do not.
+            ssl_require=not DEBUG,
+        )
+    }
+elif env("POSTGRES_DB"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -116,6 +134,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Compresses and fingerprints static files so they can be cached forever.
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 # Uploaded images (team portraits). In production serve these from the web
 # server or object storage, not Django.

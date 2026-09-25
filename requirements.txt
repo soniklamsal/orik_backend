@@ -3,5 +3,11 @@ djangorestframework>=3.17
 django-cors-headers>=4.9
 django-jazzmin>=3.0
 python-dotenv>=1.2
-# Uncomment when switching to Postgres:
-# psycopg[binary]>=3.2
+
+# Production serving
+gunicorn>=23.0
+whitenoise>=6.9
+
+# Database: DATABASE_URL parsing + the Postgres driver
+dj-database-url>=2.2
+psycopg[binary]>=3.2
